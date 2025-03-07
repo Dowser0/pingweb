@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PingWeb - Jogo de Ping Pong</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <div class="menu-container">
+        <h1>PingWeb</h1>
+        <div class="menu-buttons">
+            <button id="singleplayer">Singleplayer</button>
+            <button id="multiplayer">Multiplayer</button>
+            <button id="custom">Personalizada</button>
+            <button id="store">Loja</button>
+            <button id="bars">Barras</button>
+            <button id="settings">Configurações</button>
+        </div>
+    </div>
+
+    <div id="game-container" class="hidden">
+        <canvas id="gameCanvas"></canvas>
+    </div>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="js/game.js"></script>
+    <script src="js/menu.js"></script>
+</body>
+</html> 
