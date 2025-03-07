@@ -1,9 +1,8 @@
 [build]
-builder = "NIXPACKS"
-buildCommand = "npm ci && npm run build"
+builder = "DOCKERFILE"
+dockerfilePath = "Dockerfile"
 
 [deploy]
-startCommand = "npm start"
 healthcheckPath = "/"
 healthcheckTimeout = 100
 restartPolicyType = "ON_FAILURE"
@@ -11,5 +10,4 @@ numReplicas = 1
 
 [deploy.envs]
 NODE_ENV = "production"
-NODE_VERSION = "18.19.0"
 NEXT_TELEMETRY_DISABLED = "1" 
