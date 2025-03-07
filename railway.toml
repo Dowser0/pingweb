@@ -1,6 +1,6 @@
 [build]
 builder = "NIXPACKS"
-buildCommand = "npm install && npm run build"
+buildCommand = "npm install --legacy-peer-deps && npm run build"
 
 [deploy]
 startCommand = "npm start"
@@ -11,4 +11,6 @@ numReplicas = 1
 
 [deploy.envs]
 NODE_ENV = "production"
-NODE_VERSION = "18.x" 
+NODE_VERSION = "18.19.0"
+NPM_VERSION = "10.2.3"
+NPM_CONFIG_LEGACY_PEER_DEPS = "true" 
