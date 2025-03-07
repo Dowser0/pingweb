@@ -1,6 +1,6 @@
 [build]
 builder = "NIXPACKS"
-buildCommand = "NODE_OPTIONS='--max_old_space_size=2048' npm install --legacy-peer-deps && npm run build"
+buildCommand = "npm ci && npm run build"
 
 [deploy]
 startCommand = "npm start"
@@ -12,7 +12,4 @@ numReplicas = 1
 [deploy.envs]
 NODE_ENV = "production"
 NODE_VERSION = "18.19.0"
-NPM_VERSION = "10.2.3"
-NPM_CONFIG_LEGACY_PEER_DEPS = "true"
-NEXT_TELEMETRY_DISABLED = "1"
-NODE_OPTIONS = "--max_old_space_size=2048" 
+NEXT_TELEMETRY_DISABLED = "1" 

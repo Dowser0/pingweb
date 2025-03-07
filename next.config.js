@@ -2,19 +2,10 @@
 const nextConfig = {
   reactStrictMode: true,
   swcMinify: true,
+  // Configuração para otimizar o build
+  output: 'standalone',
   experimental: {
-    // Desabilita o Jest worker para evitar problemas de memória
-    workerThreads: false,
-    cpus: 1
-  },
-  // Otimizações para produção
-  compress: true,
-  poweredByHeader: false,
-  generateEtags: true,
-  // Configurações de cache
-  onDemandEntries: {
-    maxInactiveAge: 60 * 1000,
-    pagesBufferLength: 1
+    optimizeCss: true
   }
 }
 
