@@ -82,23 +82,15 @@ class Game {
     
     update() {
         if (this.mode === 'online' && !this.gameStatus.started) {
-            this.draw(); // Mantém o canvas limpo
+            this.draw();
             return;
         }
 
         this.updatePaddles();
         
-        if (this.mode !== 'online' || this.position === 'left') {
+        if (this.mode !== 'online') {
             this.updateBall();
             this.checkCollisions();
-            
-            if (this.mode === 'online') {
-                this.socket.emit('ballUpdate', {
-                    ball: this.ball,
-                    leftScore: this.leftPaddle.score,
-                    rightScore: this.rightPaddle.score
-                });
-            }
         }
         
         this.draw();
@@ -173,18 +165,16 @@ class Game {
         if (this.ball.x - this.ball.radius < this.paddleWidth &&
             this.ball.y > this.leftPaddle.y &&
             this.ball.y < this.leftPaddle.y + this.paddleHeight) {
-            this.ball.speedX = Math.abs(this.ball.speedX); // Garante que vai para a direita
+            this.ball.speedX = Math.abs(this.ball.speedX);
             this.ball.x = this.paddleWidth + this.ball.radius;
-            // Adiciona um pouco de aleatoriedade na direção vertical
             this.ball.speedY = (Math.random() * 10 - 5);
         }
         
         if (this.ball.x + this.ball.radius > this.canvas.width - this.paddleWidth &&
             this.ball.y > this.rightPaddle.y &&
             this.ball.y < this.rightPaddle.y + this.paddleHeight) {
-            this.ball.speedX = -Math.abs(this.ball.speedX); // Garante que vai para a esquerda
+            this.ball.speedX = -Math.abs(this.ball.speedX);
             this.ball.x = this.canvas.width - this.paddleWidth - this.ball.radius;
-            // Adiciona um pouco de aleatoriedade na direção vertical
             this.ball.speedY = (Math.random() * 10 - 5);
         }
     }
@@ -192,7 +182,6 @@ class Game {
     resetBall(direction) {
         this.ball.x = this.canvas.width / 2;
         this.ball.y = this.canvas.height / 2;
-        // Define a direção inicial baseada em quem marcou o ponto
         this.ball.speedX = direction === 'left' ? -5 : 5;
         this.ball.speedY = (Math.random() * 10 - 5);
     }
@@ -246,9 +235,7 @@ function initializeOnlineGame(socket, matchData) {
     game.hideMessage();
     
     socket.on('gameUpdate', (gameState) => {
-        if (game.position === 'right') {
-            game.ball = gameState.ball;
-        }
+        game.ball = gameState.ball;
         
         if (game.position === 'left') {
             game.rightPaddle.y = gameState.rightPaddle.y;

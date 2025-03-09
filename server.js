@@ -23,7 +23,10 @@ const GAME_CONFIG = {
     width: 800,
     height: 600,
     ballSpeed: 5,
-    paddleSpeed: 5
+    paddleSpeed: 5,
+    updateInterval: 1000 / 60, // 60 FPS
+    paddleHeight: 100,
+    paddleWidth: 10
 };
 
 function createInitialGameState() {
@@ -46,36 +49,86 @@ function createInitialGameState() {
     };
 }
 
+function updateBall(gameState) {
+    const ball = gameState.ball;
+    const leftPaddle = gameState.leftPaddle;
+    const rightPaddle = gameState.rightPaddle;
+
+    // Atualizar posição
+    ball.x += ball.speedX;
+    ball.y += ball.speedY;
+
+    // Colisão com as paredes (topo e baixo)
+    if (ball.y + ball.radius > GAME_CONFIG.height || ball.y - ball.radius < 0) {
+        ball.speedY = -ball.speedY;
+        ball.y = ball.y + ball.radius > GAME_CONFIG.height ? 
+            GAME_CONFIG.height - ball.radius : ball.radius;
+    }
+
+    // Colisão com as raquetes
+    if (ball.x - ball.radius < GAME_CONFIG.paddleWidth &&
+        ball.y > leftPaddle.y &&
+        ball.y < leftPaddle.y + GAME_CONFIG.paddleHeight) {
+        ball.speedX = Math.abs(ball.speedX); // Vai para direita
+        ball.x = GAME_CONFIG.paddleWidth + ball.radius;
+        ball.speedY = (Math.random() * 10 - 5); // Aleatoriedade na direção vertical
+    }
+
+    if (ball.x + ball.radius > GAME_CONFIG.width - GAME_CONFIG.paddleWidth &&
+        ball.y > rightPaddle.y &&
+        ball.y < rightPaddle.y + GAME_CONFIG.paddleHeight) {
+        ball.speedX = -Math.abs(ball.speedX); // Vai para esquerda
+        ball.x = GAME_CONFIG.width - GAME_CONFIG.paddleWidth - ball.radius;
+        ball.speedY = (Math.random() * 10 - 5); // Aleatoriedade na direção vertical
+    }
+
+    // Gols
+    if (ball.x + ball.radius > GAME_CONFIG.width) {
+        leftPaddle.score++;
+        resetBall(gameState, 'left');
+    } else if (ball.x - ball.radius < 0) {
+        rightPaddle.score++;
+        resetBall(gameState, 'right');
+    }
+}
+
+function resetBall(gameState, direction) {
+    gameState.ball.x = GAME_CONFIG.width / 2;
+    gameState.ball.y = GAME_CONFIG.height / 2;
+    gameState.ball.speedX = direction === 'left' ? -GAME_CONFIG.ballSpeed : GAME_CONFIG.ballSpeed;
+    gameState.ball.speedY = (Math.random() * 2 - 1) * GAME_CONFIG.ballSpeed;
+}
+
 io.on('connection', (socket) => {
     console.log('Novo jogador conectado:', socket.id);
 
-    // Quando um jogador procura uma partida
     socket.on('findMatch', () => {
         console.log('Jogador procurando partida:', socket.id);
 
         if (waitingPlayers.size > 0) {
-            // Encontrou um oponente
             const opponent = Array.from(waitingPlayers)[0];
             waitingPlayers.delete(opponent);
 
-            // Criar nova sala
             const gameId = `game_${Date.now()}`;
             socket.join(gameId);
             io.sockets.sockets.get(opponent).join(gameId);
 
-            // Configurar estado inicial do jogo
             const gameState = createInitialGameState();
-
-            activeGames.set(gameId, {
+            
+            const gameData = {
                 gameState,
                 players: {
                     left: opponent,
                     right: socket.id
                 },
-                lastUpdate: Date.now()
-            });
+                interval: setInterval(() => {
+                    updateBall(gameState);
+                    io.to(gameId).emit('gameUpdate', gameState);
+                }, GAME_CONFIG.updateInterval)
+            };
 
-            // Notificar os jogadores com suas posições
+            activeGames.set(gameId, gameData);
+
             io.to(opponent).emit('matchFound', {
                 gameId,
                 position: 'left',
@@ -89,13 +142,11 @@ io.on('connection', (socket) => {
             });
 
         } else {
-            // Adicionar à fila de espera
             waitingPlayers.add(socket.id);
             socket.emit('waitingForOpponent');
         }
     });
 
-    // Quando um jogador move a raquete
     socket.on('paddleMove', (data) => {
         const game = Array.from(activeGames.entries()).find(([_, game]) => 
             game.players.left === socket.id || game.players.right === socket.id
@@ -111,35 +162,15 @@ io.on('connection', (socket) => {
                 gameData.gameState.rightPaddle.y = data.y;
             }
 
-            // Emitir atualização para todos na sala
             io.to(gameId).emit('gameUpdate', gameData.gameState);
         }
     });
 
-    // Atualização da bola
-    socket.on('ballUpdate', (data) => {
-        const game = Array.from(activeGames.entries()).find(([_, game]) => 
-            game.players.left === socket.id
-        );
-
-        if (game) {
-            const [gameId, gameData] = game;
-            gameData.gameState.ball = data.ball;
-            gameData.gameState.leftPaddle.score = data.leftScore;
-            gameData.gameState.rightPaddle.score = data.rightScore;
-
-            io.to(gameId).emit('gameUpdate', gameData.gameState);
-        }
-    });
-
-    // Quando um jogador desconecta
     socket.on('disconnect', () => {
         console.log('Jogador desconectado:', socket.id);
         
-        // Remover da fila de espera
         waitingPlayers.delete(socket.id);
 
-        // Encerrar jogo ativo
         const game = Array.from(activeGames.entries()).find(([_, game]) => 
             game.players.left === socket.id || game.players.right === socket.id
         );
@@ -149,10 +180,12 @@ io.on('connection', (socket) => {
             const opponent = gameData.players.left === socket.id ? 
                 gameData.players.right : gameData.players.left;
 
+            // Limpar o intervalo de atualização do jogo
+            clearInterval(gameData.interval);
+
             io.to(gameId).emit('opponentDisconnected');
             activeGames.delete(gameId);
 
-            // Notificar o oponente
             const opponentSocket = io.sockets.sockets.get(opponent);
             if (opponentSocket) {
                 opponentSocket.leave(gameId);
@@ -161,7 +194,6 @@ io.on('connection', (socket) => {
     });
 });
 
-// Rotas básicas
 app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
