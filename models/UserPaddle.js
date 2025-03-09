@@ -13,19 +13,18 @@ const UserPaddle = sequelize.define('UserPaddle', {
     indexes: [
         {
             unique: true,
-            fields: ['UserId', 'PaddleId']
+            fields: ['UserId', 'PaddleId'],
+            name: 'user_paddle_unique'
         }
     ]
 });
 
-// Definir as relações com chave primária composta
+// Definir as relações
 User.belongsToMany(Paddle, { 
-    through: UserPaddle,
-    uniqueKey: 'UserPaddle_unique'
+    through: UserPaddle
 });
 Paddle.belongsToMany(User, { 
-    through: UserPaddle,
-    uniqueKey: 'UserPaddle_unique'
+    through: UserPaddle
 });
 
 module.exports = UserPaddle; 

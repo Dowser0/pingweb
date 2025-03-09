@@ -2,6 +2,8 @@ const sequelize = require('./database');
 const User = require('../models/User');
 const Paddle = require('../models/Paddle');
 const UserPaddle = require('../models/UserPaddle');
+const fs = require('fs');
+const path = require('path');
 
 const defaultPaddles = [
     {
@@ -32,13 +34,21 @@ const defaultPaddles = [
 
 const initializeDatabase = async () => {
     try {
-        // Forçar recriação das tabelas
-        await sequelize.sync({ force: true });
+        const dbPath = path.join(__dirname, '..', 'database.sqlite');
+        const isNewDatabase = !fs.existsSync(dbPath);
 
-        // Criar barras padrão
-        await Paddle.bulkCreate(defaultPaddles);
-
-        console.log('Banco de dados inicializado com sucesso!');
+        if (isNewDatabase) {
+            // Se o banco não existe, criar do zero
+            await sequelize.sync({ force: true });
+            
+            // Criar barras padrão
+            await Paddle.bulkCreate(defaultPaddles);
+            console.log('Banco de dados criado e barras padrão adicionadas!');
+        } else {
+            // Se já existe, apenas sincronizar alterações
+            await sequelize.sync();
+            console.log('Banco de dados sincronizado!');
+        }
 
         // Hook para dar barras padrão para novos usuários
         User.afterCreate(async (user) => {
