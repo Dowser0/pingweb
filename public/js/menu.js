@@ -22,7 +22,11 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     document.getElementById('custom').addEventListener('click', () => {
-        startGame('custom');
+        showComingSoonAlert('O modo personalizado');
+    });
+
+    document.getElementById('store').addEventListener('click', () => {
+        showComingSoonAlert('A loja');
     });
 
     document.getElementById('bars').addEventListener('click', () => {
@@ -30,7 +34,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     document.getElementById('settings').addEventListener('click', () => {
-        showSettings();
+        showComingSoonAlert('As configurações');
     });
 
     function showMessage(message) {
@@ -113,5 +117,9 @@ document.addEventListener('DOMContentLoaded', () => {
     function showSettings() {
         // Implementar lógica das configurações
         console.log('Abrindo configurações...');
+    }
+
+    function showComingSoonAlert(feature) {
+        alert(`${feature} estarão disponíveis em breve!\nEstamos trabalhando nisso! 🚀`);
     }
 }); 
