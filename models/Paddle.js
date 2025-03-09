@@ -29,6 +29,21 @@ const Paddle = sequelize.define('Paddle', {
         type: DataTypes.BOOLEAN,
         allowNull: false,
         defaultValue: false
+    },
+    ability: {
+        type: DataTypes.STRING,
+        allowNull: false,
+        defaultValue: 'none'
+    },
+    abilityCooldown: {
+        type: DataTypes.INTEGER,
+        allowNull: false,
+        defaultValue: 0
+    },
+    abilityDuration: {
+        type: DataTypes.INTEGER,
+        allowNull: false,
+        defaultValue: 0
     }
 });
 

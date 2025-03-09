@@ -8,11 +8,14 @@ const path = require('path');
 const defaultPaddles = [
     {
         name: 'Barra Clássica',
-        description: 'A barra tradicional do Pong, equilibrada e confiável.',
+        description: 'A barra tradicional do Pong, equilibrada e confiável. Habilidade: Crescimento temporário.',
         speed: 1.0,
         size: 1.0,
         color: '#FFFFFF',
-        isDefault: true
+        isDefault: true,
+        ability: 'grow',
+        abilityCooldown: 10000, // 10 segundos
+        abilityDuration: 3000 // 3 segundos
     },
     {
         name: 'Barra Veloz',
@@ -20,7 +23,10 @@ const defaultPaddles = [
         speed: 1.3,
         size: 0.8,
         color: '#00FF00',
-        isDefault: true
+        isDefault: true,
+        ability: 'none',
+        abilityCooldown: 0,
+        abilityDuration: 0
     },
     {
         name: 'Barra Gigante',
@@ -28,7 +34,10 @@ const defaultPaddles = [
         speed: 0.8,
         size: 1.5,
         color: '#FF0000',
-        isDefault: true
+        isDefault: true,
+        ability: 'none',
+        abilityCooldown: 0,
+        abilityDuration: 0
     }
 ];
 

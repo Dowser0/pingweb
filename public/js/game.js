@@ -26,16 +26,28 @@ class Game {
             config: initialState.leftPaddle.config || {
                 speed: 1.0,
                 size: 1.0,
-                color: '#FFFFFF'
-            }
+                color: '#FFFFFF',
+                ability: 'none',
+                abilityCooldown: 0,
+                abilityDuration: 0
+            },
+            abilityActive: false,
+            lastAbilityUse: 0,
+            originalSize: 1.0
         } : {
             y: (this.canvas.height - this.paddleHeight) / 2,
             score: 0,
             config: {
                 speed: 1.0,
                 size: 1.0,
-                color: '#FFFFFF'
-            }
+                color: '#FFFFFF',
+                ability: 'none',
+                abilityCooldown: 0,
+                abilityDuration: 0
+            },
+            abilityActive: false,
+            lastAbilityUse: 0,
+            originalSize: 1.0
         };
         
         this.rightPaddle = initialState ? {
@@ -44,16 +56,28 @@ class Game {
             config: initialState.rightPaddle.config || {
                 speed: 1.0,
                 size: 1.0,
-                color: '#FFFFFF'
-            }
+                color: '#FFFFFF',
+                ability: 'none',
+                abilityCooldown: 0,
+                abilityDuration: 0
+            },
+            abilityActive: false,
+            lastAbilityUse: 0,
+            originalSize: 1.0
         } : {
             y: (this.canvas.height - this.paddleHeight) / 2,
             score: 0,
             config: {
                 speed: 1.0,
                 size: 1.0,
-                color: '#FFFFFF'
-            }
+                color: '#FFFFFF',
+                ability: 'none',
+                abilityCooldown: 0,
+                abilityDuration: 0
+            },
+            abilityActive: false,
+            lastAbilityUse: 0,
+            originalSize: 1.0
         };
         
         // Controles
@@ -61,7 +85,8 @@ class Game {
             w: false,
             s: false,
             up: false,
-            down: false
+            down: false,
+            z: false
         };
         
         this.setupControls();
@@ -83,6 +108,7 @@ class Game {
             if (e.key === 's') this.keys.s = true;
             if (e.key === 'ArrowUp') this.keys.up = true;
             if (e.key === 'ArrowDown') this.keys.down = true;
+            if (e.key === 'z' || e.key === 'Z') this.keys.z = true;
         });
         
         window.addEventListener('keyup', (e) => {
@@ -90,6 +116,7 @@ class Game {
             if (e.key === 's') this.keys.s = false;
             if (e.key === 'ArrowUp') this.keys.up = false;
             if (e.key === 'ArrowDown') this.keys.down = false;
+            if (e.key === 'z' || e.key === 'Z') this.keys.z = false;
         });
     }
     
@@ -113,6 +140,7 @@ class Game {
         }
 
         this.updatePaddles();
+        this.checkAbilities();
         
         if (this.mode !== 'online') {
             this.updateBall();
@@ -235,22 +263,117 @@ class Game {
         
         // Desenhar raquete esquerda
         this.ctx.fillStyle = this.leftPaddle.config.color;
+        if (this.leftPaddle.abilityActive) {
+            this.ctx.shadowBlur = 10;
+            this.ctx.shadowColor = '#fff';
+        }
         this.ctx.fillRect(0, this.leftPaddle.y, 
             this.paddleWidth, 
             this.paddleHeight * this.leftPaddle.config.size);
+        this.ctx.shadowBlur = 0;
         
         // Desenhar raquete direita
         this.ctx.fillStyle = this.rightPaddle.config.color;
+        if (this.rightPaddle.abilityActive) {
+            this.ctx.shadowBlur = 10;
+            this.ctx.shadowColor = '#fff';
+        }
         this.ctx.fillRect(this.canvas.width - this.paddleWidth, 
             this.rightPaddle.y, 
             this.paddleWidth, 
             this.paddleHeight * this.rightPaddle.config.size);
+        this.ctx.shadowBlur = 0;
         
         // Desenhar bola
         this.ctx.fillStyle = '#fff';
         this.ctx.beginPath();
         this.ctx.arc(this.ball.x, this.ball.y, this.ball.radius, 0, Math.PI * 2);
         this.ctx.fill();
+
+        // Desenhar indicador de cooldown da habilidade
+        let paddle = this.position === 'left' ? this.leftPaddle : this.rightPaddle;
+        if (this.mode !== 'online') {
+            paddle = this.leftPaddle;
+        }
+
+        if (paddle.config.ability !== 'none') {
+            const currentTime = Date.now();
+            const cooldownElapsed = currentTime - paddle.lastAbilityUse;
+            const cooldownProgress = Math.min(cooldownElapsed / paddle.config.abilityCooldown, 1);
+
+            // Desenhar barra de cooldown
+            const barWidth = 50;
+            const barHeight = 5;
+            const x = this.position === 'left' ? 20 : this.canvas.width - 70;
+            const y = 20;
+
+            // Fundo da barra
+            this.ctx.fillStyle = '#333';
+            this.ctx.fillRect(x, y, barWidth, barHeight);
+
+            // Progresso do cooldown
+            this.ctx.fillStyle = cooldownProgress === 1 ? '#00ff00' : '#ff0000';
+            this.ctx.fillRect(x, y, barWidth * cooldownProgress, barHeight);
+
+            // Texto da tecla
+            this.ctx.font = '12px Arial';
+            this.ctx.fillStyle = '#fff';
+            this.ctx.textAlign = 'center';
+            this.ctx.fillText('Z', x + barWidth / 2, y + 20);
+        }
+    }
+
+    checkAbilities() {
+        const currentTime = Date.now();
+        let paddle = this.position === 'left' ? this.leftPaddle : this.rightPaddle;
+        
+        // Se não estamos em modo online, o jogador controla a raquete esquerda
+        if (this.mode !== 'online') {
+            paddle = this.leftPaddle;
+        }
+
+        // Verificar se a habilidade está ativa e se já passou o tempo de duração
+        if (paddle.abilityActive && currentTime - paddle.lastAbilityUse >= paddle.config.abilityDuration) {
+            this.deactivateAbility(paddle);
+        }
+
+        // Verificar se a tecla Z foi pressionada e se a habilidade pode ser usada
+        if (this.keys.z && !paddle.abilityActive && paddle.config.ability === 'grow') {
+            const cooldownElapsed = currentTime - paddle.lastAbilityUse;
+            if (cooldownElapsed >= paddle.config.abilityCooldown) {
+                this.activateAbility(paddle);
+            }
+        }
+
+        // Se estamos em modo online, enviar atualizações da habilidade
+        if (this.mode === 'online' && this.socket) {
+            this.socket.emit('abilityUpdate', {
+                abilityActive: paddle.abilityActive,
+                size: paddle.config.size
+            });
+        }
+    }
+
+    activateAbility(paddle) {
+        if (paddle.config.ability === 'grow') {
+            paddle.originalSize = paddle.config.size;
+            paddle.config.size *= 1.5; // Aumenta 50% do tamanho
+            paddle.abilityActive = true;
+            paddle.lastAbilityUse = Date.now();
+            
+            // Efeito sonoro ou visual aqui
+            console.log('Habilidade ativada!');
+        }
+    }
+
+    deactivateAbility(paddle) {
+        if (paddle.config.ability === 'grow') {
+            paddle.config.size = paddle.originalSize;
+            paddle.abilityActive = false;
+            
+            // Efeito sonoro ou visual aqui
+            console.log('Habilidade desativada!');
+        }
     }
 }
 

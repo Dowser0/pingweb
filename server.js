@@ -76,7 +76,10 @@ function createInitialGameState() {
             config: {
                 speed: 1.0,
                 size: 1.0,
-                color: '#FFFFFF'
+                color: '#FFFFFF',
+                ability: 'none',
+                abilityCooldown: 0,
+                abilityDuration: 0
             }
         },
         rightPaddle: {
@@ -85,7 +88,10 @@ function createInitialGameState() {
             config: {
                 speed: 1.0,
                 size: 1.0,
-                color: '#FFFFFF'
+                color: '#FFFFFF',
+                ability: 'none',
+                abilityCooldown: 0,
+                abilityDuration: 0
             }
         }
     };
@@ -166,7 +172,10 @@ io.on('connection', (socket) => {
             const paddleConfig = {
                 speed: equippedPaddle.speed,
                 size: equippedPaddle.size,
-                color: equippedPaddle.color
+                color: equippedPaddle.color,
+                ability: equippedPaddle.ability,
+                abilityCooldown: equippedPaddle.abilityCooldown,
+                abilityDuration: equippedPaddle.abilityDuration
             };
 
             // Salvar a configuração da barra no socket do jogador
@@ -241,6 +250,26 @@ io.on('connection', (socket) => {
                 gameData.gameState.rightPaddle.y = data.y;
             }
 
+            io.to(gameId).emit('gameUpdate', gameData.gameState);
+        }
+    });
+
+    socket.on('abilityUpdate', (data) => {
+        const game = Array.from(activeGames.entries()).find(([_, game]) => 
+            game.players.left === socket.id || game.players.right === socket.id
+        );
+
+        if (game) {
+            const [gameId, gameData] = game;
+            const isLeftPlayer = gameData.players.left === socket.id;
+            
+            if (isLeftPlayer) {
+                gameData.gameState.leftPaddle.config.size = data.size;
+            } else {
+                gameData.gameState.rightPaddle.config.size = data.size;
+            }
+
+            // Enviar atualização para todos os jogadores na sala
             io.to(gameId).emit('gameUpdate', gameData.gameState);
         }
     });
