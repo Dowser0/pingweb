@@ -6,10 +6,9 @@ const Paddle = sequelize.define('Paddle', {
         type: DataTypes.STRING,
         allowNull: false
     },
-    price: {
-        type: DataTypes.INTEGER,
-        allowNull: false,
-        defaultValue: 0
+    description: {
+        type: DataTypes.STRING,
+        allowNull: true
     },
     speed: {
         type: DataTypes.FLOAT,
@@ -23,11 +22,13 @@ const Paddle = sequelize.define('Paddle', {
     },
     color: {
         type: DataTypes.STRING,
+        allowNull: false,
         defaultValue: '#FFFFFF'
     },
-    special_ability: {
-        type: DataTypes.STRING,
-        allowNull: true
+    isDefault: {
+        type: DataTypes.BOOLEAN,
+        allowNull: false,
+        defaultValue: false
     }
 });
 

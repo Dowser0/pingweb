@@ -4,6 +4,10 @@ const socketIo = require('socket.io');
 const path = require('path');
 const initializeDatabase = require('./config/init-db');
 const authRoutes = require('./routes/auth');
+const barsRoutes = require('./routes/bars');
+const User = require('./models/User');
+const Paddle = require('./models/Paddle');
+const UserPaddle = require('./models/UserPaddle');
 const { Op } = require('sequelize');
 
 const app = express();
@@ -13,8 +17,9 @@ const io = socketIo(server);
 app.use(express.json());
 app.use(express.static('public'));
 
-// Rotas de autenticação
+// Rotas
 app.use('/api/auth', authRoutes);
+app.use('/api/bars', barsRoutes);
 
 // Inicializar banco de dados
 initializeDatabase();
@@ -34,6 +39,28 @@ const GAME_CONFIG = {
     paddleWidth: 10
 };
 
+async function getUserPaddle(username) {
+    try {
+        const user = await User.findOne({
+            where: { username },
+            include: [{
+                model: Paddle,
+                through: {
+                    where: { isEquipped: true }
+                }
+            }]
+        });
+
+        if (user && user.Paddles.length > 0) {
+            return user.Paddles[0];
+        }
+        return null;
+    } catch (error) {
+        console.error('Erro ao buscar barra do usuário:', error);
+        return null;
+    }
+}
+
 function createInitialGameState() {
     return {
         ball: {
@@ -44,12 +71,22 @@ function createInitialGameState() {
             radius: 10
         },
         leftPaddle: {
-            y: GAME_CONFIG.height / 2 - 50,
-            score: 0
+            y: GAME_CONFIG.height / 2 - GAME_CONFIG.paddleHeight / 2,
+            score: 0,
+            config: {
+                speed: 1.0,
+                size: 1.0,
+                color: '#FFFFFF'
+            }
         },
         rightPaddle: {
-            y: GAME_CONFIG.height / 2 - 50,
-            score: 0
+            y: GAME_CONFIG.height / 2 - GAME_CONFIG.paddleHeight / 2,
+            score: 0,
+            config: {
+                speed: 1.0,
+                size: 1.0,
+                color: '#FFFFFF'
+            }
         }
     };
 }
@@ -105,50 +142,87 @@ function resetBall(gameState, direction) {
 }
 
 io.on('connection', (socket) => {
-    console.log('Novo jogador conectado:', socket.id);
+    console.log('Um usuário conectou');
+    
+    socket.on('findMatch', async ({ username }) => {
+        try {
+            // Buscar usuário e sua barra equipada
+            const user = await User.findOne({
+                where: { username },
+                include: [{
+                    model: Paddle,
+                    through: {
+                        where: { isEquipped: true }
+                    }
+                }]
+            });
 
-    socket.on('findMatch', () => {
-        console.log('Jogador procurando partida:', socket.id);
+            if (!user || !user.Paddles || user.Paddles.length === 0) {
+                console.error('Usuário não encontrado ou sem barra equipada');
+                return;
+            }
 
-        if (waitingPlayers.size > 0) {
-            const opponent = Array.from(waitingPlayers)[0];
-            waitingPlayers.delete(opponent);
-
-            const gameId = `game_${Date.now()}`;
-            socket.join(gameId);
-            io.sockets.sockets.get(opponent).join(gameId);
-
-            const gameState = createInitialGameState();
-            
-            const gameData = {
-                gameState,
-                players: {
-                    left: opponent,
-                    right: socket.id
-                },
-                interval: setInterval(() => {
-                    updateBall(gameState);
-                    io.to(gameId).emit('gameUpdate', gameState);
-                }, GAME_CONFIG.updateInterval)
+            const equippedPaddle = user.Paddles[0];
+            const paddleConfig = {
+                speed: equippedPaddle.speed,
+                size: equippedPaddle.size,
+                color: equippedPaddle.color
             };
 
-            activeGames.set(gameId, gameData);
+            // Salvar a configuração da barra no socket do jogador
+            socket.paddleConfig = paddleConfig;
+            socket.username = username;
 
-            io.to(opponent).emit('matchFound', {
-                gameId,
-                position: 'left',
-                initialState: gameState
-            });
+            if (waitingPlayers.size > 0) {
+                const opponent = Array.from(waitingPlayers)[0];
+                waitingPlayers.delete(opponent);
 
-            io.to(socket.id).emit('matchFound', {
-                gameId,
-                position: 'right',
-                initialState: gameState
-            });
+                const gameId = `game_${Date.now()}`;
+                socket.join(gameId);
+                io.sockets.sockets.get(opponent).join(gameId);
 
-        } else {
-            waitingPlayers.add(socket.id);
-            socket.emit('waitingForOpponent');
+                const gameState = createInitialGameState();
+                
+                // Configurar barras dos jogadores
+                const opponentSocket = io.sockets.sockets.get(opponent);
+                if (opponentSocket && opponentSocket.paddleConfig) {
+                    gameState.leftPaddle.config = opponentSocket.paddleConfig;
+                }
+
+                gameState.rightPaddle.config = paddleConfig;
+                
+                const gameData = {
+                    gameState,
+                    players: {
+                        left: opponent,
+                        right: socket.id
+                    },
+                    interval: setInterval(() => {
+                        updateBall(gameState);
+                        io.to(gameId).emit('gameUpdate', gameState);
+                    }, GAME_CONFIG.updateInterval)
+                };
+
+                activeGames.set(gameId, gameData);
+
+                io.to(opponent).emit('matchFound', {
+                    gameId,
+                    position: 'left',
+                    initialState: gameState
+                });
+
+                io.to(socket.id).emit('matchFound', {
+                    gameId,
+                    position: 'right',
+                    initialState: gameState
+                });
+
+            } else {
+                waitingPlayers.add(socket.id);
+                socket.emit('waitingForOpponent');
+            }
+        } catch (error) {
+            console.error('Erro ao buscar barra equipada:', error);
         }
     });
 

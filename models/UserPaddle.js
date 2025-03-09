@@ -4,13 +4,28 @@ const User = require('./User');
 const Paddle = require('./Paddle');
 
 const UserPaddle = sequelize.define('UserPaddle', {
-    // Não precisamos definir userId e paddleId aqui, pois o belongsToMany já fará isso
+    isEquipped: {
+        type: DataTypes.BOOLEAN,
+        allowNull: false,
+        defaultValue: false
+    }
 }, {
-    timestamps: true
+    indexes: [
+        {
+            unique: true,
+            fields: ['UserId', 'PaddleId']
+        }
+    ]
 });
 
-// Definir as relações
-User.belongsToMany(Paddle, { through: UserPaddle });
-Paddle.belongsToMany(User, { through: UserPaddle });
+// Definir as relações com chave primária composta
+User.belongsToMany(Paddle, { 
+    through: UserPaddle,
+    uniqueKey: 'UserPaddle_unique'
+});
+Paddle.belongsToMany(User, { 
+    through: UserPaddle,
+    uniqueKey: 'UserPaddle_unique'
+});
 
 module.exports = UserPaddle; 

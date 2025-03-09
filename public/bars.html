@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PingWeb - Inventário de Barras</title>
+    <link rel="stylesheet" href="css/style.css">
+    <style>
+        .bars-container {
+            max-width: 1200px;
+            margin: 100px auto 0;
+            padding: 20px;
+        }
+
+        .bars-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 20px;
+            padding: 20px;
+        }
+
+        .bar-item {
+            background: rgba(0, 0, 0, 0.5);
+            border-radius: 10px;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            transition: transform 0.3s;
+        }
+
+        .bar-item:hover {
+            transform: translateY(-5px);
+        }
+
+        .bar-item.equipped {
+            border: 2px solid #4CAF50;
+        }
+
+        .bar-preview {
+            width: 100%;
+            height: 150px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 5px;
+        }
+
+        .paddle {
+            width: 10px;
+            height: 100px;
+            background: #fff;
+            border-radius: 5px;
+            transition: all 0.3s;
+        }
+
+        .bar-info {
+            text-align: center;
+        }
+
+        .bar-info h3 {
+            margin-bottom: 10px;
+            color: #fff;
+        }
+
+        .bar-info p {
+            color: #ccc;
+            margin: 5px 0;
+            font-size: 14px;
+        }
+
+        .equip-button {
+            padding: 10px;
+            background: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+
+        .equip-button:hover:not(:disabled) {
+            background: #45a049;
+        }
+
+        .equip-button:disabled {
+            background: #666;
+            cursor: not-allowed;
+        }
+    </style>
+</head>
+<body>
+    <div id="userInfo" class="user-info">
+        <span id="username"></span>
+        <span id="coins"></span>
+        <button onclick="window.location.href='/'">Voltar</button>
+        <button id="logoutButton">Sair</button>
+    </div>
+
+    <div class="bars-container">
+        <h1>Minhas Barras</h1>
+        <div class="bars-grid" id="barsGrid"></div>
+    </div>
+
+    <script>
+        // Verificar se o usuário está logado
+        const user = JSON.parse(localStorage.getItem('user'));
+        if (!user) {
+            window.location.href = '/login.html';
+        } else {
+            document.getElementById('username').textContent = `Usuário: ${user.username}`;
+            document.getElementById('coins').textContent = `Moedas: ${user.coins}`;
+        }
+
+        // Configurar botão de logout
+        document.getElementById('logoutButton').addEventListener('click', () => {
+            localStorage.removeItem('user');
+            window.location.href = '/login.html';
+        });
+
+        // Carregar barras do usuário
+        async function loadBars() {
+            try {
+                const response = await fetch(`/api/bars/inventory?username=${user.username}`);
+                const data = await response.json();
+                const barsGrid = document.getElementById('barsGrid');
+                barsGrid.innerHTML = '';
+
+                data.paddles.forEach(paddle => {
+                    const barElement = document.createElement('div');
+                    barElement.className = `bar-item ${paddle.isEquipped ? 'equipped' : ''}`;
+                    
+                    barElement.innerHTML = `
+                        <div class="bar-preview">
+                            <div class="paddle" style="
+                                height: ${100 * paddle.size}px;
+                                background: ${paddle.color};
+                                transition: transform 0.3s;
+                            "></div>
+                        </div>
+                        <div class="bar-info">
+                            <h3>${paddle.name}</h3>
+                            <p>${paddle.description}</p>
+                            <p>Velocidade: ${paddle.speed}x</p>
+                            <p>Tamanho: ${paddle.size}x</p>
+                        </div>
+                        <button class="equip-button" 
+                                onclick="equipPaddle(${paddle.id})"
+                                ${paddle.isEquipped ? 'disabled' : ''}>
+                            ${paddle.isEquipped ? 'Equipada' : 'Equipar'}
+                        </button>
+                    `;
+
+                    barsGrid.appendChild(barElement);
+                });
+            } catch (error) {
+                console.error('Erro ao carregar barras:', error);
+            }
+        }
+
+        // Equipar uma barra
+        async function equipPaddle(paddleId) {
+            try {
+                const response = await fetch('/api/bars/equip', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        username: user.username,
+                        paddleId: paddleId
+                    })
+                });
+
+                if (response.ok) {
+                    loadBars(); // Recarregar barras após equipar
+                } else {
+                    const data = await response.json();
+                    alert(data.error);
+                }
+            } catch (error) {
+                console.error('Erro ao equipar barra:', error);
+                alert('Erro ao equipar barra');
+            }
+        }
+
+        // Carregar barras ao iniciar
+        loadBars();
+    </script>
+</body>
+</html> 

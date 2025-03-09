@@ -25,12 +25,8 @@ document.addEventListener('DOMContentLoaded', () => {
         startGame('custom');
     });
 
-    document.getElementById('store').addEventListener('click', () => {
-        showStore();
-    });
-
     document.getElementById('bars').addEventListener('click', () => {
-        showBars();
+        window.location.href = '/bars.html';
     });
 
     document.getElementById('settings').addEventListener('click', () => {
@@ -63,7 +59,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
             socket.on('connect', () => {
                 showMessage('Procurando oponente...');
-                socket.emit('findMatch');
+                const user = JSON.parse(localStorage.getItem('user'));
+                socket.emit('findMatch', { username: user.username });
             });
             
             socket.on('waitingForOpponent', () => {
