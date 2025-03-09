@@ -8,6 +8,12 @@
     <script src="/socket.io/socket.io.js"></script>
 </head>
 <body>
+    <div id="userInfo" class="user-info hidden">
+        <span id="username"></span>
+        <span id="coins"></span>
+        <button id="logoutButton">Sair</button>
+    </div>
+
     <div class="menu-container">
         <h1>PingWeb</h1>
         <div class="menu-buttons">
@@ -28,5 +34,23 @@
 
     <script src="js/game.js"></script>
     <script src="js/menu.js"></script>
+    <script>
+        // Verificar se o usuário está logado
+        const user = JSON.parse(localStorage.getItem('user'));
+        if (!user) {
+            window.location.href = '/login.html';
+        } else {
+            // Mostrar informações do usuário
+            document.getElementById('userInfo').classList.remove('hidden');
+            document.getElementById('username').textContent = `Usuário: ${user.username}`;
+            document.getElementById('coins').textContent = `Moedas: ${user.coins}`;
+        }
+
+        // Configurar botão de logout
+        document.getElementById('logoutButton').addEventListener('click', () => {
+            localStorage.removeItem('user');
+            window.location.href = '/login.html';
+        });
+    </script>
 </body>
 </html> 

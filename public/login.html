@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login - Pong Online</title>
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="css/auth.css">
+</head>
+<body>
+    <div class="auth-container">
+        <h1 class="auth-title">Login</h1>
+        <form id="loginForm" class="auth-form">
+            <div class="form-group">
+                <label for="username">Usuário</label>
+                <input type="text" id="username" name="username" required>
+            </div>
+            <div class="form-group">
+                <label for="password">Senha</label>
+                <input type="password" id="password" name="password" required>
+            </div>
+            <button type="submit" class="auth-button">Entrar</button>
+            <div class="error-message" id="errorMessage"></div>
+        </form>
+        <div class="auth-switch">
+            Não tem uma conta? <a href="register.html">Registre-se</a>
+        </div>
+    </div>
+
+    <script>
+        document.getElementById('loginForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const username = document.getElementById('username').value;
+            const password = document.getElementById('password').value;
+            const errorMessage = document.getElementById('errorMessage');
+
+            try {
+                const response = await fetch('/api/auth/login', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ username, password })
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    // Salvar dados do usuário no localStorage
+                    localStorage.setItem('user', JSON.stringify(data.user));
+                    // Redirecionar para a página principal
+                    window.location.href = '/';
+                } else {
+                    errorMessage.textContent = data.error;
+                }
+            } catch (error) {
+                errorMessage.textContent = 'Erro ao fazer login. Tente novamente.';
+            }
+        });
+    </script>
+</body>
+</html> 

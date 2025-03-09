@@ -3,6 +3,8 @@ const http = require('http');
 const socketIo = require('socket.io');
 const path = require('path');
 const initializeDatabase = require('./config/init-db');
+const authRoutes = require('./routes/auth');
+const { Op } = require('sequelize');
 
 const app = express();
 const server = http.createServer(app);
@@ -10,6 +12,9 @@ const io = socketIo(server);
 
 app.use(express.json());
 app.use(express.static('public'));
+
+// Rotas de autenticação
+app.use('/api/auth', authRoutes);
 
 // Inicializar banco de dados
 initializeDatabase();
