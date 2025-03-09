@@ -1,142 +1,277 @@
 class Game {
-    constructor(mode) {
-        this.canvas = document.getElementById('gameCanvas');
-        this.ctx = this.canvas.getContext('2d');
+    constructor(canvas, mode, socket = null, position = null, initialState = null) {
+        this.canvas = canvas;
+        this.ctx = canvas.getContext('2d');
         this.mode = mode;
+        this.socket = socket;
+        this.position = position;
         
-        // Configuração do canvas
-        this.resizeCanvas();
-        window.addEventListener('resize', () => this.resizeCanvas());
-        
-        // Configuração do jogo
-        this.paddleHeight = 100;
-        this.paddleWidth = 20;
-        this.ballSize = 15;
-        this.paddleSpeed = 5;
-        this.ballSpeed = 5;
-        
-        // Posições iniciais
-        this.resetPositions();
-        
-        // Controles
-        this.keys = {};
-        window.addEventListener('keydown', (e) => this.keys[e.key] = true);
-        window.addEventListener('keyup', (e) => this.keys[e.key] = false);
-        
-        // Iniciar loop do jogo
-        this.gameLoop();
-    }
-
-    resizeCanvas() {
-        this.canvas.width = window.innerWidth;
-        this.canvas.height = window.innerHeight;
-    }
-
-    resetPositions() {
-        // Posição das raquetes
-        this.leftPaddle = {
-            x: 50,
-            y: this.canvas.height / 2 - this.paddleHeight / 2
-        };
-        
-        this.rightPaddle = {
-            x: this.canvas.width - 50 - this.paddleWidth,
-            y: this.canvas.height / 2 - this.paddleHeight / 2
-        };
-        
-        // Posição da bola
-        this.ball = {
+        // Configurações da bola
+        this.ball = initialState ? initialState.ball : {
             x: this.canvas.width / 2,
             y: this.canvas.height / 2,
-            dx: this.ballSpeed * (Math.random() > 0.5 ? 1 : -1),
-            dy: this.ballSpeed * (Math.random() > 0.5 ? 1 : -1)
+            radius: 10,
+            speedX: 5,
+            speedY: 5
         };
+        
+        // Configurações das raquetes
+        this.paddleHeight = 100;
+        this.paddleWidth = 10;
+        this.paddleSpeed = 5;
+        
+        this.leftPaddle = initialState ? initialState.leftPaddle : {
+            y: (this.canvas.height - this.paddleHeight) / 2,
+            score: 0
+        };
+        
+        this.rightPaddle = initialState ? initialState.rightPaddle : {
+            y: (this.canvas.height - this.paddleHeight) / 2,
+            score: 0
+        };
+        
+        // Controles
+        this.keys = {
+            w: false,
+            s: false,
+            up: false,
+            down: false
+        };
+        
+        this.setupControls();
+
+        // Status do jogo
+        this.gameStatus = {
+            waiting: false,
+            message: '',
+            started: false
+        };
+
+        // Elemento de mensagem
+        this.messageElement = document.getElementById('game-message');
+    }
+    
+    setupControls() {
+        window.addEventListener('keydown', (e) => {
+            if (e.key === 'w') this.keys.w = true;
+            if (e.key === 's') this.keys.s = true;
+            if (e.key === 'ArrowUp') this.keys.up = true;
+            if (e.key === 'ArrowDown') this.keys.down = true;
+        });
+        
+        window.addEventListener('keyup', (e) => {
+            if (e.key === 'w') this.keys.w = false;
+            if (e.key === 's') this.keys.s = false;
+            if (e.key === 'ArrowUp') this.keys.up = false;
+            if (e.key === 'ArrowDown') this.keys.down = false;
+        });
+    }
+    
+    showMessage(message) {
+        if (this.messageElement) {
+            this.messageElement.textContent = message;
+            this.messageElement.classList.remove('hidden');
+        }
     }
 
-    update() {
-        // Movimento das raquetes
-        if (this.keys['w'] && this.leftPaddle.y > 0) {
-            this.leftPaddle.y -= this.paddleSpeed;
+    hideMessage() {
+        if (this.messageElement) {
+            this.messageElement.classList.add('hidden');
         }
-        if (this.keys['s'] && this.leftPaddle.y < this.canvas.height - this.paddleHeight) {
-            this.leftPaddle.y += this.paddleSpeed;
+    }
+    
+    update() {
+        if (this.mode === 'online' && !this.gameStatus.started) {
+            this.draw(); // Mantém o canvas limpo
+            return;
+        }
+
+        this.updatePaddles();
+        
+        if (this.mode !== 'online' || this.position === 'left') {
+            this.updateBall();
+            this.checkCollisions();
+            
+            if (this.mode === 'online') {
+                this.socket.emit('ballUpdate', {
+                    ball: this.ball,
+                    leftScore: this.leftPaddle.score,
+                    rightScore: this.rightPaddle.score
+                });
+            }
         }
         
-        if (this.mode === 'singleplayer') {
-            // IA para o modo singleplayer
-            if (this.ball.y < this.rightPaddle.y + this.paddleHeight / 2) {
-                this.rightPaddle.y -= this.paddleSpeed;
-            } else {
-                this.rightPaddle.y += this.paddleSpeed;
+        this.draw();
+    }
+    
+    updatePaddles() {
+        if (this.mode === 'online') {
+            if (this.position === 'left') {
+                if (this.keys.w && this.leftPaddle.y > 0) {
+                    this.leftPaddle.y -= this.paddleSpeed;
+                }
+                if (this.keys.s && this.leftPaddle.y < this.canvas.height - this.paddleHeight) {
+                    this.leftPaddle.y += this.paddleSpeed;
+                }
+                this.socket.emit('paddleMove', { y: this.leftPaddle.y });
+            } else if (this.position === 'right') {
+                if (this.keys.w && this.rightPaddle.y > 0) {
+                    this.rightPaddle.y -= this.paddleSpeed;
+                }
+                if (this.keys.s && this.rightPaddle.y < this.canvas.height - this.paddleHeight) {
+                    this.rightPaddle.y += this.paddleSpeed;
+                }
+                this.socket.emit('paddleMove', { y: this.rightPaddle.y });
             }
         } else {
-            // Controles para o segundo jogador
-            if (this.keys['ArrowUp'] && this.rightPaddle.y > 0) {
-                this.rightPaddle.y -= this.paddleSpeed;
+            if (this.keys.w && this.leftPaddle.y > 0) {
+                this.leftPaddle.y -= this.paddleSpeed;
             }
-            if (this.keys['ArrowDown'] && this.rightPaddle.y < this.canvas.height - this.paddleHeight) {
-                this.rightPaddle.y += this.paddleSpeed;
+            if (this.keys.s && this.leftPaddle.y < this.canvas.height - this.paddleHeight) {
+                this.leftPaddle.y += this.paddleSpeed;
             }
-        }
-        
-        // Movimento da bola
-        this.ball.x += this.ball.dx;
-        this.ball.y += this.ball.dy;
-        
-        // Colisões com as paredes
-        if (this.ball.y <= 0 || this.ball.y >= this.canvas.height) {
-            this.ball.dy *= -1;
-        }
-        
-        // Colisões com as raquetes
-        if (this.checkCollision(this.ball, this.leftPaddle) || 
-            this.checkCollision(this.ball, this.rightPaddle)) {
-            this.ball.dx *= -1;
-        }
-        
-        // Pontuação
-        if (this.ball.x <= 0) {
-            this.resetPositions();
-            // Adicionar pontuação para o jogador da direita
-        }
-        if (this.ball.x >= this.canvas.width) {
-            this.resetPositions();
-            // Adicionar pontuação para o jogador da esquerda
+            
+            if (this.mode === 'local') {
+                if (this.keys.up && this.rightPaddle.y > 0) {
+                    this.rightPaddle.y -= this.paddleSpeed;
+                }
+                if (this.keys.down && this.rightPaddle.y < this.canvas.height - this.paddleHeight) {
+                    this.rightPaddle.y += this.paddleSpeed;
+                }
+            } else if (this.mode === 'singleplayer') {
+                const paddleCenter = this.rightPaddle.y + this.paddleHeight / 2;
+                const ballCenter = this.ball.y;
+                
+                if (paddleCenter < ballCenter - 35) {
+                    this.rightPaddle.y += this.paddleSpeed;
+                } else if (paddleCenter > ballCenter + 35) {
+                    this.rightPaddle.y -= this.paddleSpeed;
+                }
+            }
         }
     }
-
-    checkCollision(ball, paddle) {
-        return ball.x < paddle.x + this.paddleWidth &&
-               ball.x + this.ballSize > paddle.x &&
-               ball.y < paddle.y + this.paddleHeight &&
-               ball.y + this.ballSize > paddle.y;
+    
+    updateBall() {
+        this.ball.x += this.ball.speedX;
+        this.ball.y += this.ball.speedY;
+        
+        if (this.ball.y + this.ball.radius > this.canvas.height || 
+            this.ball.y - this.ball.radius < 0) {
+            this.ball.speedY = -this.ball.speedY;
+        }
+        
+        if (this.ball.x + this.ball.radius > this.canvas.width) {
+            this.leftPaddle.score++;
+            this.resetBall('left');
+        } else if (this.ball.x - this.ball.radius < 0) {
+            this.rightPaddle.score++;
+            this.resetBall('right');
+        }
     }
-
+    
+    checkCollisions() {
+        if (this.ball.x - this.ball.radius < this.paddleWidth &&
+            this.ball.y > this.leftPaddle.y &&
+            this.ball.y < this.leftPaddle.y + this.paddleHeight) {
+            this.ball.speedX = Math.abs(this.ball.speedX); // Garante que vai para a direita
+            this.ball.x = this.paddleWidth + this.ball.radius;
+            // Adiciona um pouco de aleatoriedade na direção vertical
+            this.ball.speedY = (Math.random() * 10 - 5);
+        }
+        
+        if (this.ball.x + this.ball.radius > this.canvas.width - this.paddleWidth &&
+            this.ball.y > this.rightPaddle.y &&
+            this.ball.y < this.rightPaddle.y + this.paddleHeight) {
+            this.ball.speedX = -Math.abs(this.ball.speedX); // Garante que vai para a esquerda
+            this.ball.x = this.canvas.width - this.paddleWidth - this.ball.radius;
+            // Adiciona um pouco de aleatoriedade na direção vertical
+            this.ball.speedY = (Math.random() * 10 - 5);
+        }
+    }
+    
+    resetBall(direction) {
+        this.ball.x = this.canvas.width / 2;
+        this.ball.y = this.canvas.height / 2;
+        // Define a direção inicial baseada em quem marcou o ponto
+        this.ball.speedX = direction === 'left' ? -5 : 5;
+        this.ball.speedY = (Math.random() * 10 - 5);
+    }
+    
     draw() {
-        // Limpar canvas
-        this.ctx.fillStyle = 'black';
+        this.ctx.fillStyle = '#000';
         this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
         
-        // Desenhar raquetes
-        this.ctx.fillStyle = 'white';
-        this.ctx.fillRect(this.leftPaddle.x, this.leftPaddle.y, 
-                         this.paddleWidth, this.paddleHeight);
-        this.ctx.fillRect(this.rightPaddle.x, this.rightPaddle.y, 
+        this.ctx.strokeStyle = '#fff';
+        this.ctx.setLineDash([5, 15]);
+        this.ctx.beginPath();
+        this.ctx.moveTo(this.canvas.width / 2, 0);
+        this.ctx.lineTo(this.canvas.width / 2, this.canvas.height);
+        this.ctx.stroke();
+        this.ctx.setLineDash([]);
+        
+        this.ctx.fillStyle = '#fff';
+        this.ctx.font = '48px Arial';
+        this.ctx.textAlign = 'center';
+        this.ctx.fillText(this.leftPaddle.score, this.canvas.width / 4, 50);
+        this.ctx.fillText(this.rightPaddle.score, 3 * this.canvas.width / 4, 50);
+        
+        this.ctx.fillRect(0, this.leftPaddle.y, this.paddleWidth, this.paddleHeight);
+        this.ctx.fillRect(this.canvas.width - this.paddleWidth, this.rightPaddle.y, 
                          this.paddleWidth, this.paddleHeight);
         
-        // Desenhar bola
         this.ctx.beginPath();
-        this.ctx.arc(this.ball.x, this.ball.y, this.ballSize / 2, 0, Math.PI * 2);
+        this.ctx.arc(this.ball.x, this.ball.y, this.ball.radius, 0, Math.PI * 2);
         this.ctx.fill();
-    }
-
-    gameLoop() {
-        this.update();
-        this.draw();
-        requestAnimationFrame(() => this.gameLoop());
     }
 }
 
-function initGame(mode) {
-    new Game(mode);
+function initializeGame(mode) {
+    const canvas = document.getElementById('gameCanvas');
+    const game = new Game(canvas, mode);
+    game.gameStatus.started = true;
+    
+    function gameLoop() {
+        game.update();
+        requestAnimationFrame(gameLoop);
+    }
+    
+    gameLoop();
+}
+
+function initializeOnlineGame(socket, matchData) {
+    const canvas = document.getElementById('gameCanvas');
+    const game = new Game(canvas, 'online', socket, matchData.position, matchData.initialState);
+    
+    game.gameStatus.started = true;
+    game.hideMessage();
+    
+    socket.on('gameUpdate', (gameState) => {
+        if (game.position === 'right') {
+            game.ball = gameState.ball;
+        }
+        
+        if (game.position === 'left') {
+            game.rightPaddle.y = gameState.rightPaddle.y;
+        } else {
+            game.leftPaddle.y = gameState.leftPaddle.y;
+        }
+        
+        game.leftPaddle.score = gameState.leftPaddle.score;
+        game.rightPaddle.score = gameState.rightPaddle.score;
+    });
+    
+    socket.on('opponentDisconnected', () => {
+        game.gameStatus.started = false;
+        game.showMessage('Oponente desconectou. Voltando ao menu...');
+        setTimeout(() => {
+            window.location.reload();
+        }, 3000);
+    });
+    
+    function gameLoop() {
+        game.update();
+        requestAnimationFrame(gameLoop);
+    }
+    
+    gameLoop();
 } 
