@@ -7,11 +7,16 @@ class Game {
         this.position = position;
         
         // Configurações da bola
+        this.baseSpeed = 5; // Velocidade base da bola
+        this.speedMultiplier = 1.1; // Multiplicador de velocidade após cada rebatida
+        this.maxSpeedMultiplier = 2.5; // Limite máximo do multiplicador de velocidade
+        this.currentSpeedMultiplier = 1.0; // Multiplicador atual
+
         this.ball = initialState ? initialState.ball : {
             x: this.canvas.width / 2,
             y: this.canvas.height / 2,
             radius: 10,
-            speedX: 5,
+            speedX: this.baseSpeed,
             speedY: 5
         };
         
@@ -222,24 +227,30 @@ class Game {
         if (this.ball.x - this.ball.radius < this.paddleWidth &&
             this.ball.y > this.leftPaddle.y &&
             this.ball.y < this.leftPaddle.y + leftPaddleHeight) {
-            this.ball.speedX = Math.abs(this.ball.speedX);
+            // Aumentar velocidade após rebatida na raquete esquerda
+            this.currentSpeedMultiplier = Math.min(this.currentSpeedMultiplier * this.speedMultiplier, this.maxSpeedMultiplier);
+            this.ball.speedX = Math.abs(this.baseSpeed * this.currentSpeedMultiplier);
             this.ball.x = this.paddleWidth + this.ball.radius;
-            this.ball.speedY = (Math.random() * 10 - 5);
+            this.ball.speedY = (Math.random() * 10 - 5) * this.currentSpeedMultiplier;
         }
         
         if (this.ball.x + this.ball.radius > this.canvas.width - this.paddleWidth &&
             this.ball.y > this.rightPaddle.y &&
             this.ball.y < this.rightPaddle.y + rightPaddleHeight) {
-            this.ball.speedX = -Math.abs(this.ball.speedX);
+            // Aumentar velocidade após rebatida na raquete direita
+            this.currentSpeedMultiplier = Math.min(this.currentSpeedMultiplier * this.speedMultiplier, this.maxSpeedMultiplier);
+            this.ball.speedX = -Math.abs(this.baseSpeed * this.currentSpeedMultiplier);
             this.ball.x = this.canvas.width - this.paddleWidth - this.ball.radius;
-            this.ball.speedY = (Math.random() * 10 - 5);
+            this.ball.speedY = (Math.random() * 10 - 5) * this.currentSpeedMultiplier;
         }
     }
     
     resetBall(direction) {
         this.ball.x = this.canvas.width / 2;
         this.ball.y = this.canvas.height / 2;
-        this.ball.speedX = direction === 'left' ? -5 : 5;
+        // Resetar velocidade ao valor base quando alguém pontua
+        this.currentSpeedMultiplier = 1.0;
+        this.ball.speedX = direction === 'left' ? -this.baseSpeed : this.baseSpeed;
         this.ball.speedY = (Math.random() * 10 - 5);
     }
     

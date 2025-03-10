@@ -36,7 +36,9 @@ const GAME_CONFIG = {
     paddleSpeed: 5,
     updateInterval: 1000 / 60, // 60 FPS
     paddleHeight: 100,
-    paddleWidth: 10
+    paddleWidth: 10,
+    speedMultiplier: 1.1,
+    maxSpeedMultiplier: 2.5
 };
 
 async function getUserPaddle(username) {
@@ -70,6 +72,7 @@ function createInitialGameState() {
             speedY: (Math.random() * 2 - 1) * GAME_CONFIG.ballSpeed,
             radius: 10
         },
+        currentSpeedMultiplier: 1.0,
         leftPaddle: {
             y: GAME_CONFIG.height / 2 - GAME_CONFIG.paddleHeight / 2,
             score: 0,
@@ -117,17 +120,27 @@ function updateBall(gameState) {
     if (ball.x - ball.radius < GAME_CONFIG.paddleWidth &&
         ball.y > leftPaddle.y &&
         ball.y < leftPaddle.y + GAME_CONFIG.paddleHeight) {
-        ball.speedX = Math.abs(ball.speedX); // Vai para direita
+        // Aumentar velocidade após rebatida na raquete esquerda
+        gameState.currentSpeedMultiplier = Math.min(
+            gameState.currentSpeedMultiplier * GAME_CONFIG.speedMultiplier,
+            GAME_CONFIG.maxSpeedMultiplier
+        );
+        ball.speedX = Math.abs(GAME_CONFIG.ballSpeed * gameState.currentSpeedMultiplier);
         ball.x = GAME_CONFIG.paddleWidth + ball.radius;
-        ball.speedY = (Math.random() * 10 - 5); // Aleatoriedade na direção vertical
+        ball.speedY = (Math.random() * 10 - 5) * gameState.currentSpeedMultiplier;
     }
 
     if (ball.x + ball.radius > GAME_CONFIG.width - GAME_CONFIG.paddleWidth &&
         ball.y > rightPaddle.y &&
         ball.y < rightPaddle.y + GAME_CONFIG.paddleHeight) {
-        ball.speedX = -Math.abs(ball.speedX); // Vai para esquerda
+        // Aumentar velocidade após rebatida na raquete direita
+        gameState.currentSpeedMultiplier = Math.min(
+            gameState.currentSpeedMultiplier * GAME_CONFIG.speedMultiplier,
+            GAME_CONFIG.maxSpeedMultiplier
+        );
+        ball.speedX = -Math.abs(GAME_CONFIG.ballSpeed * gameState.currentSpeedMultiplier);
         ball.x = GAME_CONFIG.width - GAME_CONFIG.paddleWidth - ball.radius;
-        ball.speedY = (Math.random() * 10 - 5); // Aleatoriedade na direção vertical
+        ball.speedY = (Math.random() * 10 - 5) * gameState.currentSpeedMultiplier;
     }
 
     // Gols
@@ -143,6 +156,8 @@ function updateBall(gameState) {
 function resetBall(gameState, direction) {
     gameState.ball.x = GAME_CONFIG.width / 2;
     gameState.ball.y = GAME_CONFIG.height / 2;
+    // Resetar velocidade ao valor base quando alguém pontua
+    gameState.currentSpeedMultiplier = 1.0;
     gameState.ball.speedX = direction === 'left' ? -GAME_CONFIG.ballSpeed : GAME_CONFIG.ballSpeed;
     gameState.ball.speedY = (Math.random() * 2 - 1) * GAME_CONFIG.ballSpeed;
 }
