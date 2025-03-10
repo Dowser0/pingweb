@@ -116,11 +116,15 @@ function updateBall(gameState) {
             GAME_CONFIG.height - ball.radius : ball.radius;
     }
 
-    // Colisão com as raquetes
+    const leftPaddleHeight = GAME_CONFIG.paddleHeight * leftPaddle.config.size;
+    const rightPaddleHeight = GAME_CONFIG.paddleHeight * rightPaddle.config.size;
+
+    // Colisão com a raquete esquerda
     if (ball.x - ball.radius < GAME_CONFIG.paddleWidth &&
+        ball.x + ball.radius > 0 &&
         ball.y > leftPaddle.y &&
-        ball.y < leftPaddle.y + GAME_CONFIG.paddleHeight) {
-        // Aumentar velocidade após rebatida na raquete esquerda
+        ball.y < leftPaddle.y + leftPaddleHeight) {
+        
         gameState.currentSpeedMultiplier = Math.min(
             gameState.currentSpeedMultiplier * GAME_CONFIG.speedMultiplier,
             GAME_CONFIG.maxSpeedMultiplier
@@ -130,10 +134,12 @@ function updateBall(gameState) {
         ball.speedY = (Math.random() * 10 - 5) * gameState.currentSpeedMultiplier;
     }
 
+    // Colisão com a raquete direita
     if (ball.x + ball.radius > GAME_CONFIG.width - GAME_CONFIG.paddleWidth &&
+        ball.x - ball.radius < GAME_CONFIG.width &&
         ball.y > rightPaddle.y &&
-        ball.y < rightPaddle.y + GAME_CONFIG.paddleHeight) {
-        // Aumentar velocidade após rebatida na raquete direita
+        ball.y < rightPaddle.y + rightPaddleHeight) {
+        
         gameState.currentSpeedMultiplier = Math.min(
             gameState.currentSpeedMultiplier * GAME_CONFIG.speedMultiplier,
             GAME_CONFIG.maxSpeedMultiplier

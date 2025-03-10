@@ -224,20 +224,24 @@ class Game {
         const leftPaddleHeight = this.paddleHeight * this.leftPaddle.config.size;
         const rightPaddleHeight = this.paddleHeight * this.rightPaddle.config.size;
 
+        // Colisão com a raquete esquerda
         if (this.ball.x - this.ball.radius < this.paddleWidth &&
+            this.ball.x + this.ball.radius > 0 && // Adiciona verificação extra para evitar "atravessamento"
             this.ball.y > this.leftPaddle.y &&
             this.ball.y < this.leftPaddle.y + leftPaddleHeight) {
-            // Aumentar velocidade após rebatida na raquete esquerda
+            
             this.currentSpeedMultiplier = Math.min(this.currentSpeedMultiplier * this.speedMultiplier, this.maxSpeedMultiplier);
             this.ball.speedX = Math.abs(this.baseSpeed * this.currentSpeedMultiplier);
             this.ball.x = this.paddleWidth + this.ball.radius;
             this.ball.speedY = (Math.random() * 10 - 5) * this.currentSpeedMultiplier;
         }
         
+        // Colisão com a raquete direita
         if (this.ball.x + this.ball.radius > this.canvas.width - this.paddleWidth &&
+            this.ball.x - this.ball.radius < this.canvas.width && // Adiciona verificação extra para evitar "atravessamento"
             this.ball.y > this.rightPaddle.y &&
             this.ball.y < this.rightPaddle.y + rightPaddleHeight) {
-            // Aumentar velocidade após rebatida na raquete direita
+            
             this.currentSpeedMultiplier = Math.min(this.currentSpeedMultiplier * this.speedMultiplier, this.maxSpeedMultiplier);
             this.ball.speedX = -Math.abs(this.baseSpeed * this.currentSpeedMultiplier);
             this.ball.x = this.canvas.width - this.paddleWidth - this.ball.radius;
