@@ -262,12 +262,12 @@ io.on('connection', (socket) => {
         if (game) {
             const [gameId, gameData] = game;
             const isLeftPlayer = gameData.players.left === socket.id;
+            const paddle = isLeftPlayer ? gameData.gameState.leftPaddle : gameData.gameState.rightPaddle;
             
-            if (isLeftPlayer) {
-                gameData.gameState.leftPaddle.config.size = data.size;
-            } else {
-                gameData.gameState.rightPaddle.config.size = data.size;
-            }
+            // Atualizar todas as propriedades da habilidade
+            paddle.config.size = data.size;
+            paddle.abilityActive = data.abilityActive;
+            paddle.lastAbilityUse = data.lastAbilityUse;
 
             // Enviar atualização para todos os jogadores na sala
             io.to(gameId).emit('gameUpdate', gameData.gameState);

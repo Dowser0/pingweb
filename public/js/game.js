@@ -349,7 +349,8 @@ class Game {
         if (this.mode === 'online' && this.socket) {
             this.socket.emit('abilityUpdate', {
                 abilityActive: paddle.abilityActive,
-                size: paddle.config.size
+                size: paddle.config.size,
+                lastAbilityUse: paddle.lastAbilityUse
             });
         }
     }
@@ -402,8 +403,14 @@ function initializeOnlineGame(socket, matchData) {
         
         if (game.position === 'left') {
             game.rightPaddle.y = gameState.rightPaddle.y;
+            game.rightPaddle.config.size = gameState.rightPaddle.config.size;
+            game.rightPaddle.abilityActive = gameState.rightPaddle.abilityActive;
+            game.rightPaddle.lastAbilityUse = gameState.rightPaddle.lastAbilityUse;
         } else {
             game.leftPaddle.y = gameState.leftPaddle.y;
+            game.leftPaddle.config.size = gameState.leftPaddle.config.size;
+            game.leftPaddle.abilityActive = gameState.leftPaddle.abilityActive;
+            game.leftPaddle.lastAbilityUse = gameState.leftPaddle.lastAbilityUse;
         }
         
         game.leftPaddle.score = gameState.leftPaddle.score;
