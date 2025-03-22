@@ -38,7 +38,10 @@ const GAME_CONFIG = {
     paddleHeight: 100,
     paddleWidth: 10,
     speedMultiplier: 1.1,
-    maxSpeedMultiplier: 2.5
+    maxSpeedMultiplier: 2.5,
+    ballRadius: 10,
+    abilityCooldown: 5000,
+    abilityDuration: 5000
 };
 
 async function getUserPaddle(username) {
@@ -63,41 +66,79 @@ async function getUserPaddle(username) {
     }
 }
 
-function createInitialGameState() {
+function createInitialGameState(leftPlayer, rightPlayer) {
     return {
-        ball: {
-            x: GAME_CONFIG.width / 2,
-            y: GAME_CONFIG.height / 2,
-            speedX: GAME_CONFIG.ballSpeed,
-            speedY: (Math.random() * 2 - 1) * GAME_CONFIG.ballSpeed,
-            radius: 10
-        },
-        currentSpeedMultiplier: 1.0,
         leftPaddle: {
             y: GAME_CONFIG.height / 2 - GAME_CONFIG.paddleHeight / 2,
             score: 0,
-            config: {
-                speed: 1.0,
-                size: 1.0,
-                color: '#FFFFFF',
-                ability: 'none',
-                abilityCooldown: 0,
-                abilityDuration: 0
+            config: leftPlayer.paddle,
+            ability: {
+                active: false,
+                cooldown: 0,
+                duration: 0
             }
         },
         rightPaddle: {
             y: GAME_CONFIG.height / 2 - GAME_CONFIG.paddleHeight / 2,
             score: 0,
-            config: {
-                speed: 1.0,
-                size: 1.0,
-                color: '#FFFFFF',
-                ability: 'none',
-                abilityCooldown: 0,
-                abilityDuration: 0
+            config: rightPlayer.paddle,
+            ability: {
+                active: false,
+                cooldown: 0,
+                duration: 0
             }
-        }
+        },
+        ball: {
+            x: GAME_CONFIG.width / 2,
+            y: GAME_CONFIG.height / 2,
+            speedX: GAME_CONFIG.ballSpeed,
+            speedY: GAME_CONFIG.ballSpeed,
+            radius: GAME_CONFIG.ballRadius
+        },
+        currentSpeedMultiplier: 1,
+        lastUpdate: Date.now()
     };
+}
+
+function updateAbilities(gameState) {
+    const now = Date.now();
+    
+    // Atualizar habilidades da raquete esquerda
+    if (gameState.leftPaddle.ability.active) {
+        if (now - gameState.leftPaddle.ability.duration >= GAME_CONFIG.abilityDuration) {
+            gameState.leftPaddle.ability.active = false;
+            gameState.leftPaddle.config.size = 1;
+        }
+    } else if (gameState.leftPaddle.ability.cooldown > 0) {
+        gameState.leftPaddle.ability.cooldown = Math.max(0, GAME_CONFIG.abilityCooldown - (now - gameState.leftPaddle.ability.cooldown));
+    }
+
+    // Atualizar habilidades da raquete direita
+    if (gameState.rightPaddle.ability.active) {
+        if (now - gameState.rightPaddle.ability.duration >= GAME_CONFIG.abilityDuration) {
+            gameState.rightPaddle.ability.active = false;
+            gameState.rightPaddle.config.size = 1;
+        }
+    } else if (gameState.rightPaddle.ability.cooldown > 0) {
+        gameState.rightPaddle.ability.cooldown = Math.max(0, GAME_CONFIG.abilityCooldown - (now - gameState.rightPaddle.ability.cooldown));
+    }
+}
+
+function activateAbility(gameState, paddle) {
+    const now = Date.now();
+    
+    if (!paddle.ability.active && paddle.ability.cooldown <= 0) {
+        paddle.ability.active = true;
+        paddle.ability.duration = now;
+        paddle.ability.cooldown = now + GAME_CONFIG.abilityCooldown;
+        
+        // Aplicar efeito da habilidade
+        if (paddle.config.ability === 'grow') {
+            paddle.config.size = 1.5;
+        }
+        return true;
+    }
+    return false;
 }
 
 function updateBall(gameState) {
@@ -211,7 +252,7 @@ io.on('connection', (socket) => {
                 socket.join(gameId);
                 io.sockets.sockets.get(opponent).join(gameId);
 
-                const gameState = createInitialGameState();
+                const gameState = createInitialGameState(socket.paddleConfig, socket.paddleConfig);
                 
                 // Configurar barras dos jogadores
                 const opponentSocket = io.sockets.sockets.get(opponent);
@@ -292,6 +333,22 @@ io.on('connection', (socket) => {
 
             // Enviar atualização para todos os jogadores na sala
             io.to(gameId).emit('gameUpdate', gameData.gameState);
+        }
+    });
+
+    socket.on('activateAbility', (data) => {
+        const game = Array.from(activeGames.entries()).find(([_, game]) => 
+            game.players.left === socket.id || game.players.right === socket.id
+        );
+
+        if (game) {
+            const [gameId, gameData] = game;
+            const isLeftPlayer = gameData.players.left === socket.id;
+            const paddle = isLeftPlayer ? gameData.gameState.leftPaddle : gameData.gameState.rightPaddle;
+
+            if (activateAbility(gameData.gameState, paddle)) {
+                io.to(gameId).emit('gameState', gameData.gameState);
+            }
         }
     });
 

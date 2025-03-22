@@ -152,6 +152,49 @@ class Game {
             this.checkCollisions();
         }
         
+        // Atualizar estado do jogo com dados do servidor
+        if (this.socket) {
+            this.socket.on('gameState', (gameState) => {
+                // Atualizar posições e estados
+                this.leftPaddle.y = gameState.leftPaddle.y;
+                this.rightPaddle.y = gameState.rightPaddle.y;
+                this.leftPaddle.config = gameState.leftPaddle.config;
+                this.rightPaddle.config = gameState.rightPaddle.config;
+                this.ball.x = gameState.ball.x;
+                this.ball.y = gameState.ball.y;
+                this.ball.speedX = gameState.ball.speedX;
+                this.ball.speedY = gameState.ball.speedY;
+                this.currentSpeedMultiplier = gameState.currentSpeedMultiplier;
+            });
+        }
+        
+        if (this.mode === 'online' && this.socket) {
+            this.socket.on('gameUpdate', (gameState) => {
+                this.ball = gameState.ball;
+                
+                if (this.position === 'left') {
+                    this.rightPaddle.y = gameState.rightPaddle.y;
+                    this.rightPaddle.config.size = gameState.rightPaddle.config.size;
+                    this.rightPaddle.ability = gameState.rightPaddle.ability;
+                } else {
+                    this.leftPaddle.y = gameState.leftPaddle.y;
+                    this.leftPaddle.config.size = gameState.leftPaddle.config.size;
+                    this.leftPaddle.ability = gameState.leftPaddle.ability;
+                }
+                
+                this.leftPaddle.score = gameState.leftPaddle.score;
+                this.rightPaddle.score = gameState.rightPaddle.score;
+                this.currentSpeedMultiplier = gameState.currentSpeedMultiplier;
+
+                // Feedback de habilidades
+                if (this.position === 'left' && this.leftPaddle.ability.active) {
+                    console.log('Habilidade ativada! Barra aumentada!');
+                } else if (this.position === 'right' && this.rightPaddle.ability.active) {
+                    console.log('Habilidade ativada! Barra aumentada!');
+                }
+            });
+        }
+        
         this.draw();
     }
     
@@ -278,26 +321,27 @@ class Game {
         
         // Desenhar raquete esquerda
         this.ctx.fillStyle = this.leftPaddle.config.color;
-        if (this.leftPaddle.abilityActive) {
+        this.ctx.fillRect(0, this.leftPaddle.y, this.paddleWidth, this.paddleHeight * this.leftPaddle.config.size);
+        
+        // Efeito visual para habilidade ativa
+        if (this.leftPaddle.ability && this.leftPaddle.ability.active) {
+            this.ctx.shadowColor = '#00ff00';
             this.ctx.shadowBlur = 10;
-            this.ctx.shadowColor = '#fff';
+            this.ctx.fillRect(0, this.leftPaddle.y, this.paddleWidth, this.paddleHeight * this.leftPaddle.config.size);
+            this.ctx.shadowBlur = 0;
         }
-        this.ctx.fillRect(0, this.leftPaddle.y, 
-            this.paddleWidth, 
-            this.paddleHeight * this.leftPaddle.config.size);
-        this.ctx.shadowBlur = 0;
         
         // Desenhar raquete direita
         this.ctx.fillStyle = this.rightPaddle.config.color;
-        if (this.rightPaddle.abilityActive) {
+        this.ctx.fillRect(this.canvas.width - this.paddleWidth, this.rightPaddle.y, this.paddleWidth, this.paddleHeight * this.rightPaddle.config.size);
+        
+        // Efeito visual para habilidade ativa
+        if (this.rightPaddle.ability && this.rightPaddle.ability.active) {
+            this.ctx.shadowColor = '#00ff00';
             this.ctx.shadowBlur = 10;
-            this.ctx.shadowColor = '#fff';
+            this.ctx.fillRect(this.canvas.width - this.paddleWidth, this.rightPaddle.y, this.paddleWidth, this.paddleHeight * this.rightPaddle.config.size);
+            this.ctx.shadowBlur = 0;
         }
-        this.ctx.fillRect(this.canvas.width - this.paddleWidth, 
-            this.rightPaddle.y, 
-            this.paddleWidth, 
-            this.paddleHeight * this.rightPaddle.config.size);
-        this.ctx.shadowBlur = 0;
         
         // Desenhar bola
         this.ctx.fillStyle = '#fff';
@@ -305,91 +349,59 @@ class Game {
         this.ctx.arc(this.ball.x, this.ball.y, this.ball.radius, 0, Math.PI * 2);
         this.ctx.fill();
 
-        // Desenhar indicador de cooldown da habilidade
-        let paddle = this.position === 'left' ? this.leftPaddle : this.rightPaddle;
-        if (this.mode !== 'online') {
-            paddle = this.leftPaddle;
+        // Desenhar barra de cooldown
+        if (this.position === 'left' && this.leftPaddle.ability) {
+            this.drawCooldownBar(this.leftPaddle.ability);
+        } else if (this.position === 'right' && this.rightPaddle.ability) {
+            this.drawCooldownBar(this.rightPaddle.ability);
         }
+    }
 
-        if (paddle.config.ability !== 'none') {
-            const currentTime = Date.now();
-            const cooldownElapsed = currentTime - paddle.lastAbilityUse;
-            const cooldownProgress = Math.min(cooldownElapsed / paddle.config.abilityCooldown, 1);
+    drawCooldownBar(ability) {
+        const barWidth = 100;
+        const barHeight = 10;
+        const x = this.canvas.width / 2 - barWidth / 2;
+        const y = 20;
 
-            // Desenhar barra de cooldown
-            const barWidth = 50;
-            const barHeight = 5;
-            const x = this.position === 'left' ? 20 : this.canvas.width - 70;
-            const y = 20;
+        // Fundo da barra
+        this.ctx.fillStyle = '#333';
+        this.ctx.fillRect(x, y, barWidth, barHeight);
 
-            // Fundo da barra
-            this.ctx.fillStyle = '#333';
+        // Barra de progresso
+        if (ability.cooldown > 0) {
+            const progress = 1 - (ability.cooldown / GAME_CONFIG.abilityCooldown);
+            this.ctx.fillStyle = '#ff0000';
+            this.ctx.fillRect(x, y, barWidth * progress, barHeight);
+        } else if (ability.active) {
+            this.ctx.fillStyle = '#00ff00';
             this.ctx.fillRect(x, y, barWidth, barHeight);
-
-            // Progresso do cooldown
-            this.ctx.fillStyle = cooldownProgress === 1 ? '#00ff00' : '#ff0000';
-            this.ctx.fillRect(x, y, barWidth * cooldownProgress, barHeight);
-
-            // Texto da tecla
-            this.ctx.font = '12px Arial';
-            this.ctx.fillStyle = '#fff';
-            this.ctx.textAlign = 'center';
-            this.ctx.fillText('Z', x + barWidth / 2, y + 20);
+        } else {
+            this.ctx.fillStyle = '#00ff00';
+            this.ctx.fillRect(x, y, barWidth, barHeight);
         }
+
+        // Texto indicando tecla Z
+        this.ctx.fillStyle = '#fff';
+        this.ctx.font = '12px Arial';
+        this.ctx.textAlign = 'center';
+        this.ctx.fillText('Pressione Z para ativar habilidade', this.canvas.width / 2, y - 5);
     }
 
     checkAbilities() {
-        const currentTime = Date.now();
-        let paddle = this.position === 'left' ? this.leftPaddle : this.rightPaddle;
-        
-        // Se não estamos em modo online, o jogador controla a raquete esquerda
-        if (this.mode !== 'online') {
-            paddle = this.leftPaddle;
-        }
-
-        // Verificar se a habilidade está ativa e se já passou o tempo de duração
-        if (paddle.abilityActive && currentTime - paddle.lastAbilityUse >= paddle.config.abilityDuration) {
-            this.deactivateAbility(paddle);
-        }
-
-        // Verificar se a tecla Z foi pressionada e se a habilidade pode ser usada
-        if (this.keys.z && !paddle.abilityActive && paddle.config.ability === 'grow') {
-            const cooldownElapsed = currentTime - paddle.lastAbilityUse;
-            if (cooldownElapsed >= paddle.config.abilityCooldown) {
-                this.activateAbility(paddle);
-            }
-        }
-
-        // Se estamos em modo online, enviar atualizações da habilidade
-        if (this.mode === 'online' && this.socket) {
-            this.socket.emit('abilityUpdate', {
-                abilityActive: paddle.abilityActive,
-                size: paddle.config.size,
-                lastAbilityUse: paddle.lastAbilityUse
-            });
-        }
+        // Remover verificação local de habilidades
+        // O servidor agora controla isso
     }
 
     activateAbility(paddle) {
-        if (paddle.config.ability === 'grow') {
-            paddle.originalSize = paddle.config.size;
-            paddle.config.size *= 1.5; // Aumenta 50% do tamanho
-            paddle.abilityActive = true;
-            paddle.lastAbilityUse = Date.now();
-            
-            // Efeito sonoro ou visual aqui
-            console.log('Habilidade ativada!');
+        // Enviar requisição para o servidor ativar a habilidade
+        if (this.socket) {
+            this.socket.emit('activateAbility');
         }
     }
 
     deactivateAbility(paddle) {
-        if (paddle.config.ability === 'grow') {
-            paddle.config.size = paddle.originalSize;
-            paddle.abilityActive = false;
-            
-            // Efeito sonoro ou visual aqui
-            console.log('Habilidade desativada!');
-        }
+        // Remover lógica local de desativação
+        // O servidor agora controla isso
     }
 }
 
